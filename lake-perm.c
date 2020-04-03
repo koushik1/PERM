@@ -1,28 +1,28 @@
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <string.h>
-    #include <math.h>
-    #include <sys/time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <sys/time.h>
 
-    #define _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
 
-    #define XMIN 0.0
-    #define XMAX 1.0
-    #define YMIN 0.0
-    #define YMAX 1.0
+#define XMIN 0.0
+#define XMAX 1.0
+#define YMIN 0.0
+#define YMAX 1.0
 
-    #define MAX_PSZ 10
-    #define TSCALE 1.0
-    #define VSQR 0.1
+#define MAX_PSZ 10
+#define TSCALE 1.0
+#define VSQR 0.1
 
-    void init(double *u, double *pebbles, int n);
-    void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
-    void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
-    int tpdt(double *t, double dt, double end_time);
-    void print_heatmap(const char *filename, double *u, int n, double h);
-    void init_pebbles(double *p, int pn, int n);
+void init(double *u, double *pebbles, int n);
+void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
+void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
+int tpdt(double *t, double dt, double end_time);
+void print_heatmap(const char *filename, double *u, int n, double h);
+void init_pebbles(double *p, int pn, int n);
 
-    void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time);
+void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time);
 
 int main(int argc, char *argv[])
     {
