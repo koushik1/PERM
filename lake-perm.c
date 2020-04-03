@@ -4,6 +4,12 @@
 #include <math.h>
 #include <sys/time.h>
 
+#include "jemalloc/jemalloc.h"
+
+#define BACK_FILE "/tmp/app.back" /* Note: different backup and mmap files */
+#define MMAP_FILE "/tmp/app.mmap"
+#define MMAP_SIZE ((size_t)1 << 30)
+
 #define _USE_MATH_DEFINES
 
 #define XMIN 0.0
@@ -14,6 +20,18 @@
 #define MAX_PSZ 10
 #define TSCALE 1.0
 #define VSQR 0.1
+
+int npoints = 128;
+int npebs = 8;
+double end_time = 1;
+int nthreads = 4;
+int narea = 128*128;
+
+PERM double u_i0[npoints*npoints];
+PERM double u_i1[npoints*npoints];
+PERM double u_cpu[npoints*npoints];
+PERM double pebs[npoints*npoints];
+PERM double t;
 
 void init(double *u, double *pebbles, int n);
 void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
@@ -27,55 +45,39 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 int main(int argc, char *argv[])
     {
 
+    perm(PERM_START, PERM_SIZE);
+    mopen(MMAP_FILE, mode, MMAP_SIZE);
+    bopen(BACK_FILE, mode);
 
-    int     npoints   = 128;
-    int     npebs     = 8;
-    double  end_time  = 1;
-    int     nthreads  = 4;
-    int     narea     = 128*128;
-
-    double *u_i0, *u_i1;
-    double *u_cpu, *u_gpu, *pebs;
     double h;
-
-    double elapsed_cpu, elapsed_gpu;
-    struct timeval cpu_start, cpu_end, gpu_start, gpu_end;
-
-    u_i0 = (double*)malloc(sizeof(double) * narea);
-    u_i1 = (double*)malloc(sizeof(double) * narea);
-    pebs = (double*)malloc(sizeof(double) * narea);
-
-    u_cpu = (double*)malloc(sizeof(double) * narea);
-    u_gpu = (double*)malloc(sizeof(double) * narea);
 
     printf("Running %s with (%d x %d) grid, until %f, with %d threads\n", argv[0], npoints, npoints, end_time, nthreads);
 
     h = (XMAX - XMIN)/npoints;
 
-    init_pebbles(pebs, npebs, npoints);
-    init(u_i0, pebs, npoints);
-    init(u_i1, pebs, npoints);
+    if (!do_restore) {
+        t = 0.; 
+        init_pebbles(pebs, npebs, npoints);
+        init(u_i0, pebs, npoints);
+        init(u_i1, pebs, npoints);
+        print_heatmap("lake_i.dat", u_i0, npoints, h);
+        mflush(); /* a flush is needed to save some global state */
+        backup();
+    }
 
+    else {
+        printf("restarting...\n");
+        restore();
+    }
 
-    print_heatmap("lake_i.dat", u_i0, npoints, h);
-
-    gettimeofday(&cpu_start, NULL);
     run_cpu(u_cpu, u_i0, u_i1, pebs, npoints, h, end_time);
-    gettimeofday(&cpu_end, NULL);
-
-    elapsed_cpu = ((cpu_end.tv_sec + cpu_end.tv_usec * 1e-6)-(
-                    cpu_start.tv_sec + cpu_start.tv_usec * 1e-6));
-    printf("CPU took %f seconds\n", elapsed_cpu);
-
-
     print_heatmap("lake_f.dat", u_cpu, npoints, h);
 
-    free(u_i0);
-    free(u_i1);
-    free(pebs);
-    free(u_cpu);
-    free(u_gpu);
-
+    // Cleanup
+    mclose();
+    bclose();
+    remove(BACK_FILE);
+    remove(MMAP_FILE);
     return 1;
     }
 
@@ -102,6 +104,7 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         memcpy(uc, un, sizeof(double) * n * n);
 
         if(!tpdt(&t,dt,end_time)) break;
+        backup();
     }
 
     memcpy(u, un, sizeof(double) * n * n);
